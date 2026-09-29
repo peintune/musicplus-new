@@ -1,0 +1,38 @@
+[package]
+name = "mp-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "转换核心：格式探测、解密框架、通用转码、标签读写（零 UI / 零网络 / 零授权依赖）"
+
+[features]
+default = []
+## MP3 编码。mp3lame-encoder 自带 LAME C 源码（cc 编译），
+## 不需要系统预装 libmp3lame，Windows / macOS 开箱即可构建。
+mp3 = ["mp3lame-encoder"]
+## FLAC 编码（纯 Rust，无外部依赖）
+flac = ["flacenc"]
+
+[dependencies]
+thiserror.workspace = true
+tracing.workspace = true
+serde = { workspace = true }
+serde_json.workspace = true
+
+# NCM 容器：key 段 / meta 段为 AES-128-ECB + base64
+aes.workspace = true
+base64.workspace = true
+
+memmap2.workspace = true
+walkdir.workspace = true
+dirs = "5"
+
+# 通用音频解码（纯 Rust，Apache-2.0/MIT）
+symphonia = { workspace = true }
+# 标签读写
+lofty = "0.22"
+# MP3 编码（可选）：自带 LAME 源码，静态链接
+mp3lame-encoder = { version = "0.2", optional = true }
+# FLAC 编码（可选）：纯 Rust 实现
+flacenc = { version = "0.4", optional = true }

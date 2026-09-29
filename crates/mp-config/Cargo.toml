@@ -1,0 +1,12 @@
+[package]
+name = "mp-config"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "配置与目录约定"
+
+[dependencies]
+thiserror.workspace = true
+serde = { workspace = true }
+serde_json.workspace = true
+dirs = "5"

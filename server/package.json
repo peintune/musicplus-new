@@ -1,0 +1,20 @@
+{
+  "name": "musicplus-license-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MusicPlus 兑换码签发服务（Serverless，零框架依赖）",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "node src/dev-server.js",
+    "gen": "node src/cli-gen.js",
+    "setup": "node src/waffo-setup.js",
+    "test": "node src/selfcheck.js"
+  },
+  "dependencies": {
+    "@waffo/pancake-ts": "^0.25.0"
+  }
+}

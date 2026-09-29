@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"MusicPlus 默认权限：仅窗口控制与文件对话框，不放开任意文件读写","local":true,"windows":["main"],"permissions":["core:default","core:window:allow-minimize","core:window:allow-maximize","core:window:allow-close","core:window:allow-set-title","core:event:default","dialog:default","dialog:allow-open"]}}

@@ -1,0 +1,9 @@
+# Supabase CLI 项目配置
+# 所有 Edge Function 都是公开 API（桌面端调用，无用户登录态），
+# JWT 校验在这里关掉；webhook 的签名校验在代码里完成。
+
+[functions.license]
+verify_jwt = false
+
+[functions.test-ed25519]
+verify_jwt = false

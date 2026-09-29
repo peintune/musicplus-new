@@ -1,0 +1,79 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/mp-core",
+    "crates/mp-license",
+    "crates/mp-task",
+    "crates/mp-config",
+    "apps/cli",
+    "tools/sign-tool",
+]
+
+# Tauri 应用依赖系统 WebView，单独构建，默认不进 workspace
+# 桌面端开发时手动进入 apps/desktop 目录执行 cargo/tauri 命令
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "Proprietary"
+repository = ""
+authors = ["MusicPlus"]
+
+[workspace.dependencies]
+# 内部 crate
+mp-core = { path = "crates/mp-core" }
+mp-license = { path = "crates/mp-license" }
+mp-task = { path = "crates/mp-task" }
+mp-config = { path = "crates/mp-config" }
+
+# 错误处理 / 日志
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# 序列化
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# 授权 / 密码学
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+sha2 = "0.10"
+blake3 = "1"
+rand = "0.8"
+aes-gcm = "0.10"
+argon2 = "0.5"
+base32 = "0.5"
+zeroize = { version = "1", features = ["derive"] }
+
+# 平台容器解密（NCM 的 key 段与 meta 段均为 AES-128-ECB）
+aes = "0.8"
+base64 = "0.22"
+
+# 系统信息
+sysinfo = "0.33"
+machine-uid = "0.5"
+
+# 并发
+rayon = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"] }
+crossbeam-channel = "0.5"
+
+# 文件处理
+memmap2 = "0.9"
+walkdir = "2"
+
+# 音频：解码 / 编码 / 标签
+symphonia = { version = "0.5", features = ["all"] }
+lofty = "0.22"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

@@ -1,0 +1,23 @@
+[package]
+name = "musicplus-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "MusicPlus 命令行工具（批量转换 / 授权管理）"
+
+[[bin]]
+name = "mp"
+path = "src/main.rs"
+
+[dependencies]
+mp-core = { path = "../../crates/mp-core", features = ["mp3"] }
+mp-license = { path = "../../crates/mp-license" }
+mp-task = { path = "../../crates/mp-task" }
+mp-config = { path = "../../crates/mp-config" }
+
+clap = { workspace = true }
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+crossbeam-channel.workspace = true
+indicatif = "0.17"

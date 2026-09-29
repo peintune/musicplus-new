@@ -1,0 +1,42 @@
+[package]
+name = "musicplus"
+version = "0.1.0"
+description = "MusicPlus 桌面端"
+edition = "2021"
+rust-version = "1.77"
+
+# 桌面端独占一个 workspace，避免与根目录共享 target 目录
+[workspace]
+
+[lib]
+name = "musicplus_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+open = "5"
+crossbeam-channel = "0.5"
+dirs = "5"
+base64 = "0.22"
+
+# 仅用于「兑换码 → 激活码」这一次性联网兑换。
+# 用 rustls 而非系统 TLS，省掉 Windows 上的 OpenSSL 依赖。
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+mp-core = { path = "../../../crates/mp-core", features = ["mp3", "flac"] }
+mp-license = { path = "../../../crates/mp-license" }
+mp-task = { path = "../../../crates/mp-task" }
+mp-config = { path = "../../../crates/mp-config" }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

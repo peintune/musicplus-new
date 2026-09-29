@@ -1,0 +1,23 @@
+[package]
+name = "sign-tool"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "离线签发工具（含私钥，禁止分发）"
+publish = false
+
+[dependencies]
+mp-license = { path = "../../crates/mp-license" }
+
+clap = { workspace = true }
+anyhow.workspace = true
+serde_json.workspace = true
+
+ed25519-dalek.workspace = true
+aes-gcm.workspace = true
+argon2.workspace = true
+rand.workspace = true
+zeroize.workspace = true
+base32.workspace = true
+chrono = "0.4"
+rpassword = "7"

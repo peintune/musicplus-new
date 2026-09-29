@@ -1,0 +1,51 @@
+本产品包含或派生自下列第三方开源项目。
+
+==============================================================================
+libtakiyasha — https://github.com/nukemiko/libtakiyasha
+Copyright (c) 2023 nukemiko
+License: MIT
+
+QQ 音乐 QMC2（.mflac / .mgg / .mgg1 / .mggl）解密算法的当前实现来源。
+本项目下列文件按 libtakiyasha 2.1.1 的 Python 实现逐行移植为 Rust：
+
+  crates/mp-core/src/decrypt/qmc2.rs   密码学核心（QMCv2 ekey V1 派生、
+                                        TarsCpp TCTEA-CBC、HardenedRC4、Mask128）
+  crates/mp-core/src/decrypt/mgg.rs    尾部封装探测（QTag / STag / 密钥长度型 /
+                                        musicex）+ 流式写出
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+==============================================================================
+jixunmoe/qmc2 — https://github.com/jixunmoe/qmc2
+Copyright (c) 2021 Jixun
+License: MIT
+
+QMC2 解密早期 Rust 移植的参考来源（分段 RC4 思路）；当前实现已改以
+libtakiyasha 为准重新核对，此处保留致谢。
+
+==============================================================================
+TarsCloud/TarsCpp — https://github.com/TarsCloud/TarsCpp
+Copyright (C) 2016 THL A29 Limited, a Tencent company. All rights reserved.
+License: BSD 3-Clause
+
+libtakiyasha 的 ekey 派生对应 TarsCpp 的 `tc_tea`（腾讯 oi_symmetry
+TEA-CBC 变体）。本项目未复制其源码，而是经 libtakiyasha 按算法重新实现于
+`crates/mp-core/src/decrypt/qmc2.rs`，此处一并致谢。

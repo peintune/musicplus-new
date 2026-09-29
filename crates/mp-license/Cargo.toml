@@ -1,0 +1,26 @@
+[package]
+name = "mp-license"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "离线授权：机器指纹采集、Ed25519 验签、许可证加密存储（零网络依赖）"
+
+[dependencies]
+thiserror.workspace = true
+serde = { workspace = true }
+serde_json.workspace = true
+
+ed25519-dalek.workspace = true
+blake3.workspace = true
+sha2.workspace = true
+rand.workspace = true
+aes-gcm.workspace = true
+argon2.workspace = true
+base32.workspace = true
+zeroize.workspace = true
+
+machine-uid.workspace = true
+dirs = "5"
+tracing.workspace = true
+chrono = { version = "0.4", features = ["serde"] }
