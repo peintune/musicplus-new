@@ -58,6 +58,28 @@ button { cursor: pointer; }
 .nav-desc { font-size: 11px; color: var(--muted); }
 
 .side-foot { margin-top: auto; padding: 12px; }
+
+/* 联系方式 */
+.contact { margin-bottom: 10px; }
+.contact-title {
+  font-size: 11px; color: var(--muted); margin: 0 2px 6px;
+  letter-spacing: .5px;
+}
+.contact-row {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 5px 8px; margin-bottom: 4px; border-radius: 7px;
+  border: 1px solid transparent; background: transparent;
+  color: var(--text); font-size: 12px; text-align: left; cursor: pointer;
+}
+.contact-row:hover { background: var(--panel-2); border-color: var(--line); }
+.contact-label { color: var(--muted); flex-shrink: 0; }
+.contact-val { font-weight: 600; flex: 1; min-width: 0; }
+.contact-copy {
+  font-size: 10.5px; color: var(--accent); flex-shrink: 0;
+  opacity: 0; transition: opacity .15s;
+}
+.contact-row:hover .contact-copy { opacity: 1; }
+
 .lic-card {
   border: 1px solid var(--line); border-radius: 10px;
   padding: 12px; background: var(--panel-2);

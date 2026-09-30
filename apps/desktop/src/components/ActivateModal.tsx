@@ -183,15 +183,9 @@ export default function ActivateModal({ status, onClose, onChanged }: Props) {
               <span>签发时间</span>
               <b>{status?.issued_at}</b>
             </div>
-            <button
-              className="ghost wide"
-              onClick={async () => {
-                await api.deactivate()
-                onChanged(await api.getStatus())
-              }}
-            >
-              解除本机授权
-            </button>
+            <p className="tip">
+              授权已绑定本机，永久离线可用，无需也无法解除绑定。更换设备需重新购买。
+            </p>
           </div>
         )}
       </div>

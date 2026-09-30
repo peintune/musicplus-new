@@ -43,14 +43,6 @@ fn activate(code: String) -> Result<StatusDto, String> {
     Ok(get_status())
 }
 
-#[tauri::command]
-fn deactivate() -> Result<(), String> {
-    mp_license::LicenseStore::open()
-        .map_err(|e| e.to_string())?
-        .clear()
-        .map_err(|e| e.to_string())
-}
-
 /// 打开购买页（唯一的联网入口），自动带上机器码
 #[tauri::command]
 fn open_purchase() -> Result<(), String> {
@@ -356,6 +348,21 @@ fn pick_folder(app: tauri::AppHandle) -> Option<String> {
         .map(|p| p.to_string_lossy().to_string())
 }
 
+/// 在系统文件管理器中打开目录（不存在则回退到其父目录）
+#[tauri::command]
+fn open_path(path: String) -> Result<(), String> {
+    let p = std::path::Path::new(&path);
+    let target = if p.exists() {
+        p.to_path_buf()
+    } else {
+        p.parent()
+            .filter(|par| par.exists())
+            .map(|par| par.to_path_buf())
+            .ok_or_else(|| "目录不存在".to_string())?
+    };
+    open::that(&target).map_err(|e| format!("无法打开目录：{e}"))
+}
+
 // ─────────────── 额度 ───────────────
 
 /// 未激活用户每日免费额度
@@ -549,7 +556,6 @@ pub fn run() {
             get_status,
             activate,
             redeem,
-            deactivate,
             open_purchase,
             start_purchase,
             poll_purchase,
@@ -557,6 +563,7 @@ pub fn run() {
             scan_dir,
             cover,
             pick_folder,
+            open_path,
             default_output_dir,
             get_quota,
             convert,

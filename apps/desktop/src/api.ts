@@ -46,7 +46,6 @@ export const api = {
   activate: (code: string) => invoke<Status>('activate', { code }),
   /** 联网兑换：发卡平台售出的兑换码 → 绑定本机的离线激活码 */
   redeem: (code: string) => invoke<Status>('redeem', { code }),
-  deactivate: () => invoke<void>('deactivate'),
   openPurchase: () => invoke<void>('open_purchase'),
   /** 发起 Waffo 购买：返回 sessionId，自动打开浏览器付款页 */
   startPurchase: () => invoke<string>('start_purchase'),
@@ -59,6 +58,8 @@ export const api = {
   /** 按需取单张封面，返回 data URL；无封面返回 null */
   getCover: (path: string) => invoke<string | null>('cover', { path }),
   pickFolder: () => invoke<string | null>('pick_folder'),
+  /** 在系统文件管理器中打开目录 */
+  openPath: (path: string) => invoke<void>('open_path', { path }),
   defaultOutputDir: () => invoke<string>('default_output_dir'),
 
   getQuota: () => invoke<Quota>('get_quota'),

@@ -522,3 +522,69 @@ mod mp3_tests {
         let _ = fs::remove_dir_all(&dir);
     }
 }
+
+#[cfg(all(test, feature = "flac"))]
+mod flac_tests {
+    use super::*;
+    use crate::transcode::decode::PcmSpec;
+
+    /// 造一段可解码的正弦 WAV
+    fn write_sine_wav(path: &std::path::Path, rate: u32, channels: u16, seconds: f32) {
+        let spec = PcmSpec { sample_rate: rate, channels };
+        let frames = (rate as f32 * seconds) as usize;
+        let mut samples = Vec::with_capacity(frames * channels as usize);
+        for i in 0..frames {
+            let v = ((i as f32 * 440.0 * 2.0 * std::f32::consts::PI / rate as f32).sin() * 12_000.0)
+                as i16;
+            for _ in 0..channels {
+                samples.push(v);
+            }
+        }
+        let mut w = WavWriter::create(path, spec).unwrap();
+        w.write_samples(spec, &samples).unwrap();
+        w.finish().unwrap();
+    }
+
+    /// 端到端：WAV → FLAC，验证产物以 "fLaC" 魔数开头
+    #[test]
+    fn wav_to_flac_produces_valid_stream() {
+        let dir = std::env::temp_dir().join(format!("mp-flac-{}", std::process::id()));
+        let _ = fs::create_dir_all(&dir);
+        let wav = dir.join("in.wav");
+        let flac = dir.join("out.flac");
+
+        write_sine_wav(&wav, 44_100, 2, 1.0);
+        transcode(&wav, &flac, TargetFormat::Flac, 0).unwrap();
+
+        let bytes = fs::read(&flac).unwrap();
+        assert!(bytes.len() > 1024, "FLAC 产物过小");
+        assert_eq!(&bytes[0..4], b"fLaC", "FLAC 魔数不对");
+        assert_eq!(bytes[4] & 0x7f, 0, "首个块应是 STREAMINFO");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// 高解析度音源（96k）转 FLAC 必须原样保留采样率
+    #[test]
+    fn flac_keeps_hires_sample_rate() {
+        let dir = std::env::temp_dir().join(format!("mp-flac-hi-{}", std::process::id()));
+        let _ = fs::create_dir_all(&dir);
+        let wav = dir.join("hi.wav");
+        let flac = dir.join("hi.flac");
+
+        write_sine_wav(&wav, 96_000, 2, 0.5);
+        transcode(&wav, &flac, TargetFormat::Flac, 0).unwrap();
+
+        let bytes = fs::read(&flac).unwrap();
+        assert_eq!(&bytes[0..4], b"fLaC");
+        // STREAMINFO 内容始于偏移 8：
+        // min block 2B, max block 2B, min frame 3B, max frame 3B，
+        // 之后 8B 中前 20bit 为采样率（大端）→ 字节 18/19/20高4位
+        let rate = ((bytes[18] as u32) << 12)
+            | ((bytes[19] as u32) << 4)
+            | ((bytes[20] as u32) >> 4);
+        assert_eq!(rate, 96_000, "FLAC 输出采样率被改动了");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+}

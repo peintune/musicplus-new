@@ -229,6 +229,7 @@ mod tests {
     fn target_parse() {
         assert_eq!(TargetFormat::parse("mp3"), Some(TargetFormat::Mp3));
         assert_eq!(TargetFormat::parse("KEEP"), Some(TargetFormat::KeepOriginal));
-        assert_eq!(TargetFormat::parse("flac"), None);
+        assert_eq!(TargetFormat::parse("flac"), Some(TargetFormat::Flac));
+        assert_eq!(TargetFormat::parse("wav"), Some(TargetFormat::Wav));
     }
 }

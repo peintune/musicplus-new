@@ -1,4 +1,9 @@
+import { useState } from 'react'
 import type { Quota, Status } from '../api'
+
+/** 客服联系方式 */
+const CONTACT_QQ = '3163172384'
+const CONTACT_GROUP = '347373948'
 
 export interface PlatformItem {
   id: string
@@ -25,6 +30,17 @@ interface Props {
 
 export default function Sidebar({ current, onSwitch, status, quota, onActivate }: Props) {
   const activated = status?.activated ?? false
+  const [copied, setCopied] = useState('')
+
+  const copy = async (label: string, value: string) => {
+    try {
+      await navigator.clipboard?.writeText(value)
+      setCopied(label)
+      setTimeout(() => setCopied(''), 1500)
+    } catch {
+      // 剪贴板不可用时静默
+    }
+  }
 
   return (
     <aside className="sidebar">
@@ -47,6 +63,28 @@ export default function Sidebar({ current, onSwitch, status, quota, onActivate }
       </nav>
 
       <div className="side-foot">
+        <div className="contact">
+          <div className="contact-title">联系客服</div>
+          <button
+            className="contact-row"
+            title="点击复制"
+            onClick={() => copy('qq', CONTACT_QQ)}
+          >
+            <span className="contact-label">客服 QQ</span>
+            <span className="contact-val">{CONTACT_QQ}</span>
+            <span className="contact-copy">{copied === 'qq' ? '已复制' : '复制'}</span>
+          </button>
+          <button
+            className="contact-row"
+            title="点击复制"
+            onClick={() => copy('group', CONTACT_GROUP)}
+          >
+            <span className="contact-label">QQ 群</span>
+            <span className="contact-val">{CONTACT_GROUP}</span>
+            <span className="contact-copy">{copied === 'group' ? '已复制' : '复制'}</span>
+          </button>
+        </div>
+
         <div className={activated ? 'lic-card ok' : 'lic-card'}>
           <div className="lic-title">{activated ? '已激活' : '未激活'}</div>
           {activated ? (

@@ -14,10 +14,10 @@ use std::path::PathBuf;
 
 /// 未激活时每天允许解码的首数
 ///
-/// 产品政策：**未激活 100 首/天**，激活后不限量。改动这个值会直接改变
+/// 产品政策：**未激活 3 首/天**，激活后不限量。改动这个值会直接改变
 /// 未付费用户能转换多少文件，改之前先确认是产品决策而不是临时调试。
-/// `free_quota_is_100_per_day` 会盯住这个数。
-pub const FREE_PER_DAY: u32 = 100;
+/// `free_quota_is_3_per_day` 会盯住这个数。
+pub const FREE_PER_DAY: u32 = 3;
 
 const QUOTA_FILE: &str = "quota.bin";
 
@@ -217,12 +217,12 @@ mod tests {
         assert!(FREE_PER_DAY + 1 > FREE_PER_DAY);
     }
 
-    /// 盯住产品政策：未激活 100 首/天
+    /// 盯住产品政策：未激活 3 首/天
     ///
     /// 这里不用 `> 1` 这种弱断言 —— 之前 UI 上出现过写死 1 的地方，
     /// 放宽断言会让回归溜过去。
     #[test]
-    fn free_quota_is_100_per_day() {
-        assert_eq!(FREE_PER_DAY, 100);
+    fn free_quota_is_3_per_day() {
+        assert_eq!(FREE_PER_DAY, 3);
     }
 }

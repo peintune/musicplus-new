@@ -5,5 +5,8 @@
 [functions.license]
 verify_jwt = false
 
+[functions.webhook]
+verify_jwt = false
+
 [functions.test-ed25519]
 verify_jwt = false

@@ -4,11 +4,25 @@ import Sidebar, { PLATFORMS } from './components/Sidebar'
 import FileTable, { type RowState } from './components/FileTable'
 import ActivateModal from './components/ActivateModal'
 
+/** 记住用户上一次选择的目录/格式，键名统一加前缀 */
+const LS = {
+  get: (k: string) => localStorage.getItem(k) ?? '',
+  set: (k: string, v: string) => {
+    if (v) localStorage.setItem(k, v)
+  },
+}
+const KEY_PLATFORM = 'mp:platform'
+const keyDir = (p: string) => `mp:dir:${p}`
+const KEY_OUTDIR = 'mp:outdir'
+const keyTarget = (p: string) => `mp:target:${p}`
+
 export default function App() {
-  const [platform, setPlatform] = useState('netease')
+  const [platform, setPlatform] = useState(() => LS.get(KEY_PLATFORM) || 'netease')
   const [dir, setDir] = useState('')
-  const [outdir, setOutdir] = useState('')
-  const [target, setTarget] = useState('keep')
+  const [outdir, setOutdir] = useState(() => LS.get(KEY_OUTDIR))
+  const [target, setTarget] = useState(
+    () => LS.get(keyTarget(LS.get(KEY_PLATFORM) || 'netease')) || 'keep',
+  )
 
   const [files, setFiles] = useState<ScannedFile[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -34,8 +48,14 @@ export default function App() {
   useEffect(() => {
     api.getStatus().then(setStatus)
     refreshQuota()
-    api.defaultOutputDir().then(setOutdir)
+    // 只在没有记忆目录时才回落到系统默认输出目录
+    api.defaultOutputDir().then((d) => setOutdir((prev) => prev || d))
   }, [])
+
+  // 记住上次所在平台
+  useEffect(() => {
+    LS.set(KEY_PLATFORM, platform)
+  }, [platform])
 
   useEffect(() => {
     if (!toast) return
@@ -43,25 +63,40 @@ export default function App() {
     return () => clearTimeout(t)
   }, [toast])
 
-  // 切换平台 → 自动定位该平台的默认下载目录
+  // 切换平台 → 优先恢复上次选过的目录/格式，没有再回落到默认下载目录
   useEffect(() => {
     let dropped = false
     setFiles([])
     setSelected(new Set())
     setStates({})
-    setTarget(platform === 'common' ? 'mp3' : 'keep')
-    api
-      .defaultDir(platform)
-      .then((d) => {
-        if (!dropped) setDir(d ?? '')
-      })
-      .catch(() => {
-        if (!dropped) setDir('')
-      })
+
+    // 恢复该平台上次的输出格式
+    const savedTarget = LS.get(keyTarget(platform))
+    setTarget(savedTarget || (platform === 'common' ? 'mp3' : 'keep'))
+
+    // 恢复该平台上次的输入目录
+    const savedDir = LS.get(keyDir(platform))
+    if (savedDir) {
+      setDir(savedDir)
+    } else {
+      api
+        .defaultDir(platform)
+        .then((d) => {
+          if (!dropped) setDir(d ?? '')
+        })
+        .catch(() => {
+          if (!dropped) setDir('')
+        })
+    }
     return () => {
       dropped = true
     }
   }, [platform])
+
+  // 记住该平台选择的输出格式
+  useEffect(() => {
+    LS.set(keyTarget(platform), target)
+  }, [platform, target])
 
   // 目录变化 → 自动扫描
   useEffect(() => {
@@ -74,7 +109,10 @@ export default function App() {
     api
       .scanDir(dir, platform)
       .then((fs) => {
-        if (!dropped) setFiles(fs)
+        if (dropped) return
+        // 能成功扫描说明目录有效，记住它
+        LS.set(keyDir(platform), dir)
+        setFiles(fs)
       })
       .catch((e) => {
         if (!dropped) setToast(String(e))
@@ -189,6 +227,7 @@ export default function App() {
 
   const startConvert = async () => {
     if (!list.length || !outdir || busy) return
+    LS.set(KEY_OUTDIR, outdir)
     setBusy(true)
     setStates({})
     try {
@@ -200,6 +239,16 @@ export default function App() {
     } catch (e) {
       setToast(String(e))
       setBusy(false)
+    }
+  }
+
+  /** 在系统文件管理器中打开目录 */
+  const openDir = async (p: string) => {
+    if (!p) return
+    try {
+      await api.openPath(p)
+    } catch (e) {
+      setToast(String(e))
     }
   }
 
@@ -253,6 +302,9 @@ export default function App() {
           <button className="ghost" onClick={() => setDir(dir)} disabled={!dir || scanning}>
             {scanning ? '扫描中…' : '刷新'}
           </button>
+          <button className="ghost" onClick={() => openDir(dir)} disabled={!dir}>
+            打开目录
+          </button>
         </div>
 
         {quota && !quota.unlimited && (
@@ -305,10 +357,16 @@ export default function App() {
               className="ghost sm"
               onClick={async () => {
                 const d = await api.pickFolder()
-                if (d) setOutdir(d)
+                if (d) {
+                  setOutdir(d)
+                  LS.set(KEY_OUTDIR, d)
+                }
               }}
             >
               浏览
+            </button>
+            <button className="ghost sm" onClick={() => openDir(outdir)} disabled={!outdir}>
+              打开
             </button>
           </label>
 

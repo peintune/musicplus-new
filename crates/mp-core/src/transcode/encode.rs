@@ -241,32 +241,41 @@ impl PcmSink for FlacWriter {
     }
 
     fn finish(&mut self) -> Result<()> {
-        use flacenc::bitsink::{BitSink, MemSink};
+        use flacenc::bitsink::MemSink;
         use flacenc::component::BitRepr;
         use flacenc::config;
+        use flacenc::error::Verify;
         use flacenc::encode_with_fixed_block_size;
         use flacenc::source::MemSource;
 
+        // 空音频兜底参数（与 WAV/MP3 一致）
+        if self.samples.is_empty() {
+            self.spec = PcmSpec { sample_rate: 44_100, channels: 2 };
+        }
         let channels = self.spec.channels.max(1) as usize;
-        let sample_rate = self.spec.sample_rate as usize;
+        let sample_rate = self.spec.sample_rate.max(1) as usize;
 
-        // flacenc 接收 i32 样本（FLAC 支持到 24-bit），i16 → i32 符号扩展
-        let i32_samples: Vec<i32> = self.samples.iter().map(|&s| s as i32).collect();
+        // 空音频：写一个静音帧，避免某些播放器拒绝无帧 FLAC
+        let i32_samples: Vec<i32> = if self.samples.is_empty() {
+            vec![0i32; sample_rate * channels] // 1 秒静音
+        } else {
+            self.samples.iter().map(|&s| s as i32).collect()
+        };
 
         let source = MemSource::from_samples(&i32_samples, channels, 16, sample_rate);
 
         let cfg = config::Encoder::default()
-            .try_into()
-            .map_err(|e| Error::Encode(format!("FLAC 配置失败：{e}")))?;
+            .into_verified()
+            .map_err(|(_, e)| Error::Encode(format!("FLAC 配置失败：{e}")))?;
 
         let stream = encode_with_fixed_block_size(&cfg, source, 4096)
-            .map_err(|e| Error::Encode(format!("FLAC 编码失败：{e}")))?;
+            .map_err(|e| Error::Encode(format!("FLAC 编码失败：{e:?}")))?;
 
         // 序列化到字节缓冲区再写入文件
         let mut sink = MemSink::<u8>::new();
         stream
             .write(&mut sink)
-            .map_err(|e| Error::Encode(format!("FLAC 序列化失败：{e}")))?;
+            .map_err(|e| Error::Encode(format!("FLAC 序列化失败：{e:?}")))?;
 
         let bytes = sink.into_inner();
         std::fs::write(&self.path, &bytes)?;

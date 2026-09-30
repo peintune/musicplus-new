@@ -123,6 +123,158 @@ async function waffoPost(path: string, body?: any): Promise<any> {
   return res.json()
 }
 
+// ──── Waffo Webhook 验签（RSA-SHA256，复刻 pancake-ts verifyWebhook）────
+// 头格式：x-waffo-signature: t=<毫秒时间戳>,v1=<base64 签名>
+// 签名原文：`${t}.${rawBody}`；窗口与 SDK 一致（过去 45 分钟 / 未来 1 分钟）
+const WEBHOOK_TOLERANCE_MS = 45 * 60 * 1000
+const WEBHOOK_FUTURE_MS = 60 * 1000
+
+const TEST_WEBHOOK_PUB = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxnmRY6yMMA3lVqmAU6ZG
+b1sjL/+r/z6E+ZjkXaDAKiqOhk9rpazni0bNsGXwmftTPk9jy2wn+j6JHODD/WH/
+SCnSfvKkLIjy4Hk7BuCgB174C0ydan7J+KgXLkOwgCAxxB68t2tezldwo74ZpXgn
+F49opzMvQ9prEwIAWOE+kV9iK6gx/AckSMtHIHpUesoPDkldpmFHlB2qpf1vsFTZ
+5kD6DmGl+2GIVK01aChy2lk8pLv0yUMu18v44sLkO5M44TkGPJD9qG09wrvVG2wp
+OTVCn1n5pP8P+HRLcgzbUB3OlZVfdFurn6EZwtyL4ZD9kdkQ4EZE/9inKcp3c1h4
+xwIDAQAB
+-----END PUBLIC KEY-----`
+
+const PROD_WEBHOOK_PUB = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAz+xApdTIb4ua+DgZKQ54
+iBsD82ybyhGCLRETONW4Jgbb3A8DUM1LqBk6r/CmTOCHqLalTQHNigvP3R5zkDNX
+iRJz6gA4MJ/+8K0+mnEE2RISQzN+Qu65TNd6svb+INm/kMaftY4uIXr6y6kchtTJ
+dwnQhcKdAL2v7h7IFnkVelQsKxDdb2PqX8xX/qwd01iXvMcpCCaXovUwZsxH2QN5
+ZKBTseJivbhUeyJCco4fdUyxOMHe2ybCVhyvim2uxAl1nkvL5L8RCWMCAV55LLo0
+9OhmLahz/DYNu13YLVP6dvIT09ZFBYU6Owj1NxdinTynlJCFS9VYwBgmftosSE1U
+dwIDAQAB
+-----END PUBLIC KEY-----`
+
+let _webhookKey: CryptoKey | null = null
+async function webhookPublicKey(): Promise<CryptoKey> {
+  if (_webhookKey) return _webhookKey
+  const custom = Deno.env.get('WAFFO_WEBHOOK_PUBLIC_KEY')
+  const pem = (custom ?? (Deno.env.get('WAFFO_ENV') === 'test' ? TEST_WEBHOOK_PUB : PROD_WEBHOOK_PUB))
+    .replace(/\\n/g, '\n')
+  const der = b64ToBytes(pem.replace(/-----[^-]+-----/g, '').replace(/\s+/g, ''))
+  _webhookKey = await crypto.subtle.importKey(
+    'spki', der, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify'],
+  )
+  return _webhookKey
+}
+
+/** 验证 webhook 签名；通过返回 true，否则返回中文错误原因 */
+async function verifyWaffoWebhook(rawBody: string, header: string | null): Promise<true | string> {
+  if (!header) return '缺少 x-waffo-signature 头'
+  let t = '', v1 = ''
+  for (const pair of header.split(',')) {
+    const i = pair.indexOf('=')
+    if (i < 0) continue
+    const k = pair.slice(0, i).trim()
+    const val = pair.slice(i + 1).trim()
+    if (k === 't') t = val
+    else if (k === 'v1') v1 = val
+  }
+  if (!t || !v1) return '签名头格式错误（缺 t 或 v1）'
+  const ts = Number(t)
+  if (Number.isNaN(ts)) return '签名时间戳非法'
+  const age = Date.now() - ts
+  if (age > WEBHOOK_TOLERANCE_MS || age < -WEBHOOK_FUTURE_MS) {
+    return '签名超出时间窗口（可能为重放攻击）'
+  }
+  let sig: Uint8Array
+  try {
+    sig = b64ToBytes(v1)
+  } catch {
+    return '签名 base64 非法'
+  }
+  const key = await webhookPublicKey()
+  const ok = await crypto.subtle.verify(
+    'RSASSA-PKCS1-v1_5', key, sig, new TextEncoder().encode(`${t}.${rawBody}`),
+  )
+  return ok ? true : '签名验证失败'
+}
+
+/** webhook 中 metadata 是对象，GraphQL 订单上可能是 JSON 字符串，统一解析 */
+function parseMeta(raw: unknown): Record<string, string> {
+  if (!raw) return {}
+  if (typeof raw === 'object') return raw as Record<string, string>
+  if (typeof raw === 'string') {
+    try { return JSON.parse(raw) } catch { return {} }
+  }
+  return {}
+}
+
+async function fetchSession(filter: string): Promise<any | null> {
+  const rows = await db(`/checkout_sessions?${filter}&select=*&limit=1`)
+  return rows?.[0] ?? null
+}
+
+/**
+ * 付款成功后签发激活码并落库；webhook 与 pull 两条路径共用。
+ * 幂等：已签发直接返回旧码；并发时用 status=eq.pending 条件 PATCH 保证只签一次。
+ */
+async function fulfillCheckout(
+  machineIdRaw: string,
+  ctx: { purchaseId?: string; orderId?: string; eventId?: string },
+): Promise<string> {
+  const machineId = machineIdRaw.trim().toLowerCase()
+  if (!/^[0-9a-f]{32}$/.test(machineId)) throw new Error('machineId 非法')
+
+  let rec = ctx.purchaseId ? await fetchSession(`purchase_id=eq.${encodeURIComponent(ctx.purchaseId)}`) : null
+  if (rec?.status === 'issued') return rec.license_code
+
+  const seed = Deno.env.get('MP_SIGN_SEED')!
+  const signKey = await importSeedKey(seed)
+  const serial = BigInt('0x' + crypto.randomUUID().replace(/-/g, '').slice(0, 16))
+  const licenseCode = await issueLicense(signKey, machineId, serial)
+
+  const patch: Record<string, unknown> = {
+    status: 'issued',
+    license_code: licenseCode,
+    paid_at: Math.floor(Date.now() / 1000),
+  }
+  if (ctx.orderId) patch.order_id = ctx.orderId
+  if (ctx.eventId) patch.event_id = ctx.eventId
+
+  if (rec) {
+    const updated = await db(
+      `/checkout_sessions?session_id=eq.${encodeURIComponent(rec.session_id)}&status=eq.pending`,
+      { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(patch) },
+    )
+    if (Array.isArray(updated) && updated.length) return licenseCode
+    // 竞态落败：另一路（webhook/pull）已签发，取库里的码
+    const winner = await fetchSession(`session_id=eq.${encodeURIComponent(rec.session_id)}`)
+    return winner?.license_code ?? licenseCode
+  }
+
+  // 本地无会话记录（罕见，如行被清理）：以事件为锚直接落单
+  const sessionId = ctx.purchaseId
+    ? `po_${ctx.purchaseId}`
+    : `wh_${ctx.eventId ?? crypto.randomUUID().replace(/-/g, '')}`
+  try {
+    await db('/checkout_sessions', {
+      method: 'POST',
+      body: JSON.stringify({
+        session_id: sessionId,
+        purchase_id: ctx.purchaseId ?? null,
+        machine_id: machineId,
+        ...patch,
+      }),
+    })
+  } catch {
+    // 并发插入冲突：读已存在的行，已签发则复用，否则补一次条件 PATCH
+    const winner = await fetchSession(`session_id=eq.${encodeURIComponent(sessionId)}`)
+    if (winner?.status === 'issued') return winner.license_code
+    await db(
+      `/checkout_sessions?session_id=eq.${encodeURIComponent(sessionId)}&status=eq.pending`,
+      { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(patch) },
+    )
+    const again = await fetchSession(`session_id=eq.${encodeURIComponent(sessionId)}`)
+    return again?.license_code ?? licenseCode
+  }
+  return licenseCode
+}
+
 // ──── 路由 ────
 const json = (s: number, o: any) => new Response(JSON.stringify(o), {
   status: s, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' },
@@ -179,21 +331,54 @@ Deno.serve(async (req: Request) => {
       })
       if (!matched) return json(200, { ok: true, status: 'pending' })
 
-      // 签发激活码
-      const seed = Deno.env.get('MP_SIGN_SEED')!
-      const key = await importSeedKey(seed)
-      const serial = BigInt('0x' + crypto.randomUUID().replace(/-/g, '').slice(0, 16))
-      const licenseCode = await issueLicense(key, rec.machine_id, serial)
-      await db(`/checkout_sessions?session_id=eq.${sessionId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: 'issued', license_code: licenseCode, paid_at: Math.floor(Date.now() / 1000), order_id: matched.id }),
+      // 签发激活码（与 webhook 共用，内部保证幂等）
+      const licenseCode = await fulfillCheckout(rec.machine_id, {
+        purchaseId: rec.purchase_id,
+        orderId: matched.id,
       })
       return json(200, { ok: true, status: 'issued', licenseCode })
     }
 
-    // POST /webhooks/waffo
+    // POST /webhooks/waffo —— Waffo 付款成功回调（raw body 必须先于 JSON.parse 读取）
     if (path === '/webhooks/waffo' && req.method === 'POST') {
-      return json(200, { ok: true }) // TODO: webhook 验签（可选增强）
+      const rawBody = await req.text()
+      const sigHeader = req.headers.get('x-waffo-signature')
+      const verified = await verifyWaffoWebhook(rawBody, sigHeader)
+      if (verified !== true) {
+        console.warn('[license] webhook 验签失败：', verified)
+        return json(401, { ok: false, error: verified })
+      }
+
+      let event: any
+      try {
+        event = JSON.parse(rawBody)
+      } catch {
+        return json(400, { ok: false, error: '事件体不是合法 JSON' })
+      }
+
+      // 只处理一次性订单完成事件；其他类型签收但不处理，避免 Waffo 重试
+      if (event?.eventType !== 'order.completed') {
+        return json(200, { ok: true, ignored: event?.eventType ?? 'unknown' })
+      }
+
+      const eventId = String(event.id ?? '')
+      if (eventId) {
+        const dup = await fetchSession(`event_id=eq.${encodeURIComponent(eventId)}`)
+        if (dup?.status === 'issued') return json(200, { ok: true, idempotent: true })
+      }
+
+      // 注意：webhook 事件里订单 metadata 字段名为 orderMetadata
+      const meta = parseMeta(event.data?.orderMetadata ?? event.data?.metadata)
+      const machineId = String(meta.machineId ?? '')
+      if (!machineId) return json(400, { ok: false, error: '订单 metadata 缺少 machineId' })
+
+      await fulfillCheckout(machineId, {
+        purchaseId: meta.purchaseId ? String(meta.purchaseId) : undefined,
+        orderId: event.data?.orderId ? String(event.data.orderId) : undefined,
+        eventId: eventId || undefined,
+      })
+      // 处理成功必须 200，否则 Waffo 会持续重试
+      return json(200, { ok: true, status: 'issued' })
     }
 
     // POST /redeem
