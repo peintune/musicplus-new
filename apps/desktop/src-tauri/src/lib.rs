@@ -53,8 +53,9 @@ fn open_purchase() -> Result<(), String> {
 
 const PURCHASE_URL: &str = "https://buy.musicplus.app";
 
-/// 兑换服务地址。可用 `MP_REDEEM_URL` 覆盖，便于本地联调。
-const REDEEM_URL: &str = "https://license.musicplus.app/redeem";
+/// 兑换服务地址。可用 `MP_REDEEM_URL` 覆盖，便于本地联调或日后切自定义域名。
+const REDEEM_URL: &str =
+    "https://gwnhrclijjbcdqxmuhgy.supabase.co/functions/v1/license/redeem";
 
 /// 支付服务地址（checkout + webhook），与兑换共用同一台服务器。
 const CHECKOUT_BASE: &str = "https://gwnhrclijjbcdqxmuhgy.supabase.co/functions/v1/license";

@@ -127,7 +127,7 @@ export default function ActivateModal({ status, onClose, onChanged }: Props) {
             </p>
             {err && <p className="err">{err}</p>}
             <button className="primary wide" onClick={purchase}>
-              立即购买（$19.99，买断）
+              立即购买（￥50，买断）
             </button>
           </div>
         )}
