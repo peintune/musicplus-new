@@ -1,5 +1,4 @@
 target/
-Cargo.lock
 .DS_Store
 *.log
 
@@ -10,10 +9,6 @@ keypair*.enc
 *.pem
 *.license
 *.lic
-
-# 环境变量（含私钥）
-.env
-.env.local
 
 # Tauri 前端产物
 apps/desktop/frontend/dist/

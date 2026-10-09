@@ -297,7 +297,7 @@ Deno.serve(async (req: Request) => {
       const result = await waffoPost('/v1/actions/checkout/create-session', {
         productId: Deno.env.get('WAFFO_PRODUCT_ID'),
         productType: 'onetime',
-        currency: 'USD',
+        currency: 'CNY',
         metadata: { machineId, purchaseId },
       })
       const session = result.data ?? result
