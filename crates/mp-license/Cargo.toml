@@ -21,6 +21,6 @@ base32.workspace = true
 zeroize.workspace = true
 
 machine-uid.workspace = true
-dirs = "5"
+dirs = "6"
 tracing.workspace = true
 chrono = { version = "0.4", features = ["serde"] }

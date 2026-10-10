@@ -1,0 +1,6 @@
+# 静态链接 VC 运行库，并避免 windows-result 引入 Windows 8 的 WinRT 错误 API。
+[target.x86_64-win7-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static", "--cfg", "windows_slim_errors"]
+
+[target.i686-win7-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static", "--cfg", "windows_slim_errors"]

@@ -76,12 +76,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: apps/desktop
+          args: -- --locked
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: ${{ github.ref_type == 'tag' && format('MusicPlus {0}', github.ref_name) || '' }}
           releaseBody: |
             下载对应平台的安装包：
 
-            - `*_x64-setup.exe` — Windows 64 位
+            - `*_legacy-x64-setup.exe` — Windows 7 SP1 及以上 64 位兼容版，含旧版 Windows 10（内置 WebView2）
+            - `*_legacy-x86-setup.exe` — Windows 7 SP1 / 8 / 8.1 / 10 32 位兼容版（内置 WebView2）
+            - `*_x64-setup.exe`（不含 legacy）— Windows 10 / 11 64 位（离线安装 WebView2）
             - `*.dmg` — macOS（Apple 芯片 / Intel 分别对应 `aarch64` / `x64`）
 
             一次激活，永久离线可用。
@@ -96,6 +99,90 @@ jobs:
         with:
           name: musicplus-windows-x64
           path: apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+
+  # 旧系统不能运行最新 EdgeUpdate；直接内置 109 浏览器运行时，不启动更新安装器。
+  # Win7 Tier 3 目标需要 rust-src + build-std，不能用 stable 的默认 Windows 目标。
+  build-windows-legacy:
+    name: Windows 7+ ${{ matrix.arch }}
+    needs: guard
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            target: x86_64-win7-windows-msvc
+          - arch: x86
+            target: i686-win7-windows-msvc
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 安装 Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: 安装 Win7 构建工具链
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-10-01
+          components: rust-src
+
+      - name: 缓存 Rust 编译产物
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+          shared-key: windows-legacy-${{ matrix.arch }}
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装兼容性检查工具
+        run: python -m pip install -r ci/requirements-windows-compat.txt
+
+      - name: 准备微软 WebView2 109 运行时
+        run: python ci/prepare-windows-legacy.py --arch ${{ matrix.arch }}
+
+      - name: 安装前端依赖
+        working-directory: apps/desktop
+        run: npm ci
+
+      - name: 构建并检查 Windows 兼容版
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MP_WINDOWS_LEGACY_TARGET: ${{ matrix.target }}
+          MP_WINDOWS_LEGACY_ARCH: ${{ matrix.arch }}
+        with:
+          projectPath: apps/desktop
+          tauriScript: bash ../../ci/tauri-windows-legacy.sh
+          args: --target ${{ matrix.target }} --config src-tauri/tauri.windows-legacy.json --bundles nsis --ci
+          assetNamePattern: "[name]_[version]_legacy-[arch][setup].[ext]"
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          releaseName: ${{ github.ref_type == 'tag' && format('MusicPlus {0}', github.ref_name) || '' }}
+          releaseBody: |
+            下载对应平台的安装包：
+
+            - `*_legacy-x64-setup.exe` — Windows 7 SP1 及以上 64 位兼容版，含旧版 Windows 10（内置 WebView2）
+            - `*_legacy-x86-setup.exe` — Windows 7 SP1 / 8 / 8.1 / 10 32 位兼容版（内置 WebView2）
+            - `*_x64-setup.exe`（不含 legacy）— Windows 10 / 11 64 位（离线安装 WebView2）
+            - `*.dmg` — macOS（Apple 芯片 / Intel 分别对应 `aarch64` / `x64`）
+
+            一次激活，永久离线可用。
+          releaseDraft: true
+          prerelease: false
+          uploadUpdaterJson: false
+
+      - name: 上传 Windows 兼容版产物
+        uses: actions/upload-artifact@v5
+        with:
+          name: musicplus-windows-legacy-${{ matrix.arch }}
+          path: apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.exe
           if-no-files-found: error
 
   # ── macOS ARM（Apple 芯片）────────────────────────────────
@@ -141,7 +228,9 @@ jobs:
           releaseBody: |
             下载对应平台的安装包：
 
-            - `*_x64-setup.exe` — Windows 64 位
+            - `*_legacy-x64-setup.exe` — Windows 7 SP1 及以上 64 位兼容版，含旧版 Windows 10（内置 WebView2）
+            - `*_legacy-x86-setup.exe` — Windows 7 SP1 / 8 / 8.1 / 10 32 位兼容版（内置 WebView2）
+            - `*_x64-setup.exe`（不含 legacy）— Windows 10 / 11 64 位（离线安装 WebView2）
             - `*.dmg` — macOS（Apple 芯片 / Intel 分别对应 `aarch64` / `x64`）
 
             一次激活，永久离线可用。
@@ -202,7 +291,9 @@ jobs:
           releaseBody: |
             下载对应平台的安装包：
 
-            - `*_x64-setup.exe` — Windows 64 位
+            - `*_legacy-x64-setup.exe` — Windows 7 SP1 及以上 64 位兼容版，含旧版 Windows 10（内置 WebView2）
+            - `*_legacy-x86-setup.exe` — Windows 7 SP1 / 8 / 8.1 / 10 32 位兼容版（内置 WebView2）
+            - `*_x64-setup.exe`（不含 legacy）— Windows 10 / 11 64 位（离线安装 WebView2）
             - `*.dmg` — macOS（Apple 芯片 / Intel 分别对应 `aarch64` / `x64`）
 
             一次激活，永久离线可用。

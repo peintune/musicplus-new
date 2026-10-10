@@ -14,3 +14,6 @@ keypair*.enc
 apps/desktop/frontend/dist/
 apps/desktop/gen/
 node_modules/
+
+# CI 下载并打包的旧版 WebView2；约数百 MB，不提交到 Git。
+apps/desktop/src-tauri/webview2-legacy/

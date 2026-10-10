@@ -9,4 +9,4 @@ description = "配置与目录约定"
 thiserror.workspace = true
 serde = { workspace = true }
 serde_json.workspace = true
-dirs = "5"
+dirs = "6"

@@ -26,7 +26,7 @@ base64.workspace = true
 
 memmap2.workspace = true
 walkdir.workspace = true
-dirs = "5"
+dirs = "6"
 
 # 通用音频解码（纯 Rust，Apache-2.0/MIT）
 symphonia = { workspace = true }

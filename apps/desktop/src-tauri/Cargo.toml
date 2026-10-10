@@ -8,21 +8,27 @@ rust-version = "1.77"
 # 桌面端独占一个 workspace，避免与根目录共享 target 目录
 [workspace]
 
+# ctor 0.8 的 Windows CRT 节区识别只接受 pc vendor，补充 Rust Win7 目标。
+[patch.crates-io]
+ctor = { path = "../../../ci/vendor/ctor" }
+
 [lib]
 name = "musicplus_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "=2.6.3", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+# 2.11 是最后保留 Windows 7 支持的系列；兼容版不随 cargo update 升到 2.12。
+tauri = { version = "=2.11.5", features = [] }
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 open = "5"
 crossbeam-channel = "0.5"
-dirs = "5"
+# dirs 5 的 windows-targets 0.48 构建脚本不识别 Win7 目标。
+dirs = "6"
 base64 = "0.22"
 
 # 仅用于「兑换码 → 激活码」这一次性联网兑换。
