@@ -55,10 +55,10 @@ const PURCHASE_URL: &str = "https://buy.musicplus.app";
 
 /// 兑换服务地址。可用 `MP_REDEEM_URL` 覆盖，便于本地联调或日后切自定义域名。
 const REDEEM_URL: &str =
-    "https://gwnhrclijjbcdqxmuhgy.supabase.co/functions/v1/license/redeem";
+    "https://supabase-proxy.runjam.app/functions/v1/license/redeem";
 
 /// 支付服务地址（checkout + webhook），与兑换共用同一台服务器。
-const CHECKOUT_BASE: &str = "https://gwnhrclijjbcdqxmuhgy.supabase.co/functions/v1/license";
+const CHECKOUT_BASE: &str = "https://supabase-proxy.runjam.app/functions/v1/license";
 
 /// 兑换超时。宁可短一点让用户重试，也别让界面一直转圈。
 const REDEEM_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
