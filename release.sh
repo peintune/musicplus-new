@@ -35,7 +35,12 @@ TAG="v$VER"
 
 # ── 版本号写入 tauri.conf.json（决定安装包的版本显示）──────
 CONF="apps/desktop/src-tauri/tauri.conf.json"
-sed -i "s/\"version\": \"[0-9][0-9.]*\"/\"version\": \"$VER\"/" "$CONF"
+# macOS 的 BSD sed 要求 -i 后有备份扩展名；空字符串表示不保留备份。
+if [ "$(uname -s)" = "Darwin" ]; then
+  sed -i '' "s/\"version\": \"[0-9][0-9.]*\"/\"version\": \"$VER\"/" "$CONF"
+else
+  sed -i "s/\"version\": \"[0-9][0-9.]*\"/\"version\": \"$VER\"/" "$CONF"
+fi
 
 # ── 提交（.sh 脚本标记为可执行，方便 Git Bash 直接 ./ 运行）──
 git add -A

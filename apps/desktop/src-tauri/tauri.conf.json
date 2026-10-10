@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "MusicPlus",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "identifier": "app.musicplus.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -38,7 +38,8 @@
     "shortDescription": "音乐格式转换工具",
     "longDescription": "将各大音乐平台的加密格式与个人音频文件转换为通用格式，一次激活，永久离线可用。",
     "macOS": {
-      "minimumSystemVersion": "10.15"
+      "minimumSystemVersion": "10.15",
+      "signingIdentity": "-"
     },
     "windows": {
       "certificateThumbprint": null,

@@ -340,28 +340,39 @@ async fn cover(path: String) -> Option<String> {
 const MAX_COVER_BYTES: usize = 4 * 1024 * 1024;
 
 #[tauri::command]
-fn pick_folder(app: tauri::AppHandle) -> Option<String> {
-    use tauri_plugin_dialog::DialogExt;
-    let picked = app.dialog().file().blocking_pick_folder()?;
-    picked
-        .into_path()
-        .ok()
-        .map(|p| p.to_string_lossy().to_string())
+async fn pick_folder(app: tauri::AppHandle) -> Option<String> {
+    // 原生对话框需要主线程处理事件；不能在主线程同步等待它的结果。
+    tauri::async_runtime::spawn_blocking(move || {
+        use tauri_plugin_dialog::DialogExt;
+        let picked = app.dialog().file().blocking_pick_folder()?;
+        picked
+            .into_path()
+            .ok()
+            .map(|p| p.to_string_lossy().to_string())
+    })
+    .await
+    .ok()
+    .flatten()
 }
 
 /// 在系统文件管理器中打开目录（不存在则回退到其父目录）
 #[tauri::command]
-fn open_path(path: String) -> Result<(), String> {
-    let p = std::path::Path::new(&path);
-    let target = if p.exists() {
-        p.to_path_buf()
-    } else {
-        p.parent()
-            .filter(|par| par.exists())
-            .map(|par| par.to_path_buf())
-            .ok_or_else(|| "目录不存在".to_string())?
-    };
-    open::that(&target).map_err(|e| format!("无法打开目录：{e}"))
+async fn open_path(path: String) -> Result<(), String> {
+    // 文件系统检查和启动文件管理器都可能阻塞，放到后台执行。
+    tauri::async_runtime::spawn_blocking(move || {
+        let p = std::path::Path::new(&path);
+        let target = if p.exists() {
+            p.to_path_buf()
+        } else {
+            p.parent()
+                .filter(|par| par.exists())
+                .map(|par| par.to_path_buf())
+                .ok_or_else(|| "目录不存在".to_string())?
+        };
+        open::that(&target).map_err(|e| format!("无法打开目录：{e}"))
+    })
+    .await
+    .map_err(|e| format!("打开目录任务异常：{e}"))?
 }
 
 // ─────────────── 额度 ───────────────

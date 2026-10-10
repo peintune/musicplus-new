@@ -125,15 +125,17 @@ jobs:
         working-directory: apps/desktop
         run: npm ci
 
-      # 纯 Rust + 系统 WebView，无内嵌可执行文件，Tauri 自带的 ad-hoc 签名即可。
-      # 注意：未做 Developer ID 签名 + 公证（notarization）时，用户首次打开
-      # 需右键「打开」或执行 xattr -rd com.apple.quarantine /Applications/MusicPlus.app。
+      # tauri.conf.json 显式对整个 .app 做 ad-hoc 签名，链接器签名不能替代它。
+      # 包装命令校验 DMG 内的应用，成功后 tauri-action 才会上传 Release 附件。
+      # 尚未配置 Developer ID + 公证，下载后仍可能需要在「隐私与安全性」允许打开。
       - name: 构建 Tauri（macOS ARM）
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MP_MACOS_BUNDLE_DIR: ${{ github.workspace }}/apps/desktop/src-tauri/target/release/bundle
         with:
           projectPath: apps/desktop
+          tauriScript: bash ../../ci/tauri-macos.sh
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: ${{ github.ref_type == 'tag' && format('MusicPlus {0}', github.ref_name) || '' }}
           releaseBody: |
@@ -190,8 +192,10 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MP_MACOS_BUNDLE_DIR: ${{ github.workspace }}/apps/desktop/src-tauri/target/x86_64-apple-darwin/release/bundle
         with:
           projectPath: apps/desktop
+          tauriScript: bash ../../ci/tauri-macos.sh
           args: --target x86_64-apple-darwin
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: ${{ github.ref_type == 'tag' && format('MusicPlus {0}', github.ref_name) || '' }}
